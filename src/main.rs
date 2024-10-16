@@ -1,7 +1,10 @@
 use std::env;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 use std::path::{Path, PathBuf};
 use std::fs;
+
+mod lexer;
+use lexer::tokenize;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -28,7 +31,21 @@ fn main() {
     }
 
     match option {
-        Some("--lex") => println!("Lexing completed"),
+        Some("--lex") => {
+            let input = fs::read_to_string(input_path).expect("Failed to read input file");
+            match tokenize(&input) {
+                Ok(tokens) => {
+                    println!("Lexing completed. Tokens:");
+                    for token in tokens {
+                        println!("{:?}", token);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Lexing error: {}", e);
+                    exit(1);
+                }
+            }
+        },
         Some("--parse") => println!("Parsing completed"),
         Some("--codegen") => println!("Code generation completed"),
         Some("-S") => {
