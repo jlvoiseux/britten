@@ -1,4 +1,9 @@
 use regex::Regex;
+use std::str::FromStr;
+
+//
+// Tokens
+//
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -12,6 +17,10 @@ pub enum Token {
     Semicolon,
 }
 
+//
+// Keywords
+//
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Keyword {
     Int,
@@ -19,16 +28,22 @@ pub enum Keyword {
     Return,
 }
 
-impl Keyword {
-    fn from_str(s: &str) -> Option<Self> {
+impl FromStr for Keyword {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "int" => Some(Keyword::Int),
-            "void" => Some(Keyword::Void),
-            "return" => Some(Keyword::Return),
-            _ => None,
+            "int" => Ok(Keyword::Int),
+            "void" => Ok(Keyword::Void),
+            "return" => Ok(Keyword::Return),
+            _ => Err(()),
         }
     }
 }
+
+//
+// Tokenization logic
+//
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>, String> {
     let mut tokens = Vec::new();
@@ -70,10 +85,10 @@ fn tokenize_next(input: &str) -> Result<(Token, &str), String> {
 }
 
 fn tokenize_identifier_or_keyword(s: &str) -> Result<Token, String> {
-    Ok(match Keyword::from_str(s) {
-        Some(keyword) => Token::Keyword(keyword),
-        None => Token::Identifier(s.to_string()),
-    })
+    match Keyword::from_str(s) {
+        Ok(keyword) => Ok(Token::Keyword(keyword)),
+        Err(_) => Ok(Token::Identifier(s.to_string())),
+    }
 }
 
 fn tokenize_constant(s: &str) -> Result<Token, String> {
