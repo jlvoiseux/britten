@@ -5,11 +5,13 @@ use std::vec::IntoIter;
 use crate::lexer::{Token, Keyword};
 
 //
-// AST definition
+// C AST nodes
 //
 
 #[derive(Debug, Clone)]
-pub struct Identifier(pub String);
+pub enum Identifier {
+    Identifier(String),
+}
 
 #[derive(Debug, Clone)]
 pub enum Program {
@@ -59,6 +61,14 @@ impl PrettyPrint for Program {
                 writeln!(f, "{}", indent(level))?;
                 write!(f, "{})", indent(level))
             }
+        }
+    }
+}
+
+impl PrettyPrint for Identifier {
+    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, _level: usize) -> fmt::Result {
+        match self {
+            Identifier::Identifier(name) => write!(f, "{}", name),
         }
     }
 }
@@ -113,7 +123,7 @@ impl fmt::Display for FunctionDefinition {
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        self.pretty_print(f, 0)
     }
 }
 
@@ -137,7 +147,13 @@ type TokenIterator = Peekable<IntoIter<Token>>;
 
 pub fn parse(tokens: Vec<Token>) -> Result<Program, String> {
     let mut tokens = tokens.into_iter().peekable();
-    parse_program(&mut tokens)
+    let program = parse_program(&mut tokens)?;
+
+    if tokens.peek().is_some() {
+        return Err("Unexpected content after main function".to_string());
+    }
+
+    Ok(program)
 }
 
 fn parse_program(tokens: &mut TokenIterator) -> Result<Program, String> {
@@ -174,7 +190,7 @@ fn parse_expression(tokens: &mut TokenIterator) -> Result<Expression, String> {
 
 fn parse_identifier(tokens: &mut TokenIterator) -> Result<Identifier, String> {
     if let Some(Token::Identifier(name)) = tokens.next() {
-        Ok(Identifier(name))
+        Ok(Identifier::Identifier(name))
     } else {
         Err("Expected identifier".to_string())
     }
