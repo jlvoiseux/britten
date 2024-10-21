@@ -58,6 +58,9 @@ fn generate_expression(expr: &Expression) -> Result<Vec<AssemblyInstruction>, St
                 AssemblyOperand::Register("eax".to_string()),
             )])
         }
+        Expression::Unary(_op, _expr) => {
+            Err("Unary operators not implemented yet for generation".to_string())
+        }
     }
 }
 

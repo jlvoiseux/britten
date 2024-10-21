@@ -34,6 +34,13 @@ pub enum Statement {
 #[derive(Debug, Clone)]
 pub enum Expression {
     Constant(i32),
+    Unary(UnaryOperator, Box<Expression>),
+}
+
+#[derive(Debug, Clone)]
+pub enum UnaryOperator {
+    Complement,
+    Negate,
 }
 
 //
@@ -105,6 +112,16 @@ impl PrettyPrint for Expression {
     fn pretty_print(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
         match self {
             Expression::Constant(value) => write!(f, "{}Constant({})", indent(level), value),
+            Expression::Unary(op, expr) => write!(f, "{}Unary({}({}))", indent(level), op, expr),
+        }
+    }
+}
+
+impl PrettyPrint for UnaryOperator {
+    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, _level: usize) -> fmt::Result {
+        match self {
+            UnaryOperator::Complement => write!(f, "Complement"),
+            UnaryOperator::Negate => write!(f, "Negate"),
         }
     }
 }
@@ -137,6 +154,10 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.pretty_print(f, 0)
     }
+}
+
+impl fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {self.pretty_print(f, 0)}
 }
 
 //
@@ -181,11 +202,21 @@ fn parse_statement(tokens: &mut TokenIterator) -> Result<Statement, String> {
 }
 
 fn parse_expression(tokens: &mut TokenIterator) -> Result<Expression, String> {
-    if let Some(Token::Constant(value)) = tokens.next() {
-        Ok(Expression::Constant(value))
-    } else {
-        Err("Expected constant expression".to_string())
+    match tokens.next() {
+        Some(Token::Constant(value)) => Ok(Expression::Constant(value)),
+        Some(Token::BitwiseComplement) => parse_unary_operation(UnaryOperator::Complement, tokens),
+        Some(Token::Negation) => parse_unary_operation(UnaryOperator::Negate, tokens),
+        Some(Token::OpenParen) => {
+            let expr = parse_expression(tokens)?;
+            expect(tokens, &Token::CloseParen)?;
+            Ok(expr)
+        },
+        _ => Err("Expected valid expression".to_string()),
     }
+}
+
+fn parse_unary_operation(operator: UnaryOperator, tokens: &mut TokenIterator) -> Result<Expression, String> {
+    parse_expression(tokens).map(|expr| Expression::Unary(operator, Box::new(expr)))
 }
 
 fn parse_identifier(tokens: &mut TokenIterator) -> Result<Identifier, String> {

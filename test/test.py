@@ -204,7 +204,7 @@ if __name__ == "__main__":
     invalid_parse_preprocessed = preprocess_files("samples/invalid_parse")
 
     print("\nRunning Lexer Tests...")
-    lexer_results = run_tests(run_lexer, invalid_lex_preprocessed, valid_preprocessed)
+    lexer_results = run_tests(run_lexer, invalid_lex_preprocessed, invalid_parse_preprocessed + valid_preprocessed)
     print("Lexer Test Results:")
     lexer_passed = print_results(lexer_results)
 

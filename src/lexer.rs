@@ -15,6 +15,8 @@ pub enum Token {
     OpenBrace,
     CloseBrace,
     Semicolon,
+    BitwiseComplement,
+    Negation
 }
 
 //
@@ -62,15 +64,19 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, String> {
     Ok(tokens)
 }
 
+// Order matters - if a token matches two expressions, we should use the longest match
 fn tokenize_next(input: &str) -> Result<(Token, &str), String> {
     let token_patterns: Vec<(&str, fn(&str) -> Result<Token, String>)> = vec![
         (r"^[a-zA-Z_]\w*\b", tokenize_identifier_or_keyword),
         (r"^[0-9]+\b", tokenize_constant),
+        (r"^--", |_| Err("Decrement token not implemented yet".to_string())),
         (r"^\(", |_| Ok(Token::OpenParen)),
         (r"^\)", |_| Ok(Token::CloseParen)),
         (r"^\{", |_| Ok(Token::OpenBrace)),
         (r"^\}", |_| Ok(Token::CloseBrace)),
         (r"^;", |_| Ok(Token::Semicolon)),
+        (r"^~", |_| Ok(Token::BitwiseComplement)),
+        (r"^-", |_| Ok(Token::Negation)),
     ];
 
     for (pattern, tokenizer) in token_patterns.iter() {
