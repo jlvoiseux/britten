@@ -44,120 +44,61 @@ pub enum UnaryOperator {
 }
 
 //
-// Pretty-print
+// Debug print
 //
-
-fn indent(level: usize) -> String {
-    "    ".repeat(level)
-}
-
-fn write_indented(f: &mut fmt::Formatter<'_>, level: usize, s: &str) -> fmt::Result {
-    writeln!(f, "{}{}", indent(level), s)
-}
-
-trait PrettyPrint {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result;
-}
-
-impl PrettyPrint for Program {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
-        match self {
-            Program::Program(func_def) => {
-                writeln!(f, "Program(")?;
-                func_def.pretty_print(f, level + 1)?;
-                writeln!(f, "{}", indent(level))?;
-                write!(f, "{})", indent(level))
-            }
-        }
-    }
-}
-
-impl PrettyPrint for Identifier {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, _level: usize) -> fmt::Result {
-        match self {
-            Identifier::Identifier(name) => write!(f, "{}", name),
-        }
-    }
-}
-
-impl PrettyPrint for FunctionDefinition {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
-        match self {
-            FunctionDefinition::Function { name, body } => {
-                writeln!(f, "{}Function(", indent(level))?;
-                write_indented(f, level + 1, &format!("name=\"{}\",", name))?;
-                write!(f, "{}body=", indent(level + 1))?;
-                body.pretty_print(f, level + 1)?;
-                writeln!(f)?;
-                write!(f, "{})", indent(level))
-            }
-        }
-    }
-}
-
-impl PrettyPrint for Statement {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
-        match self {
-            Statement::Return(expr) => {
-                writeln!(f, "Return(")?;
-                expr.pretty_print(f, level+1)?;
-                writeln!(f)?;
-                write!(f, "{})", indent(level))
-            }
-        }
-    }
-}
-
-impl PrettyPrint for Expression {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, level: usize) -> fmt::Result {
-        match self {
-            Expression::Constant(value) => write!(f, "{}Constant({})", indent(level), value),
-            Expression::Unary(op, expr) => write!(f, "{}Unary({}({}))", indent(level), op, expr),
-        }
-    }
-}
-
-impl PrettyPrint for UnaryOperator {
-    fn pretty_print(&self, f: &mut fmt::Formatter<'_>, _level: usize) -> fmt::Result {
-        match self {
-            UnaryOperator::Complement => write!(f, "Complement"),
-            UnaryOperator::Negate => write!(f, "Negate"),
-        }
-    }
-}
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.pretty_print(f, 0)
+        match self {
+            Program::Program(func_def) => {
+                write!(f, "Program(\n    {}\n)", func_def)
+            }
+        }
     }
 }
 
 impl fmt::Display for FunctionDefinition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.pretty_print(f, 0)
+        match self {
+            FunctionDefinition::Function { name, body } => {
+                write!(f, "Function(name=\"{}\", body={})", name, body)
+            }
+        }
     }
 }
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.pretty_print(f, 0)
+        match self {
+            Identifier::Identifier(name) => write!(f, "{}", name)
+        }
     }
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.pretty_print(f, 0)
+        match self {
+            Statement::Return(expr) => write!(f, "Return({})", expr)
+        }
     }
 }
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.pretty_print(f, 0)
+        match self {
+            Expression::Constant(value) => write!(f, "Constant({})", value),
+            Expression::Unary(op, expr) => write!(f, "Unary({}({}))", op, expr)
+        }
     }
 }
 
 impl fmt::Display for UnaryOperator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {self.pretty_print(f, 0)}
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            UnaryOperator::Complement => write!(f, "Complement"),
+            UnaryOperator::Negate => write!(f, "Negate")
+        }
+    }
 }
 
 //

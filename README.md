@@ -18,7 +18,7 @@ clang file.s -o file
 ### Running tests
 On the linux distribution of your choice:
 ```sh
-cargo build --target x86_64-unknown-linux-gnu
+cargo build --release --target x86_64-unknown-linux-gnu
 python3 test/test.py
 ```
 
