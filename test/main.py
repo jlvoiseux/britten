@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
-from typing import List, Tuple, Callable
+import argparse
+from typing import List, Tuple, Callable, Optional
 from preprocessor import preprocess_folder
 from compiler import (run_lexer, run_parser, run_llvm_ir_generator, run_x86_64_generator, run_full_compiler)
 from test_runner import run_tests, TestResult
@@ -15,10 +16,45 @@ def run_stage(stage_info: Tuple[int, str, Callable, List[str], List[str]]) -> Tu
     stage_results = run_tests(test_func, invalid_files, valid_files)
     return (stage_order, stage_name, stage_results)
 
+def parse_args() -> Optional[str]:
+    parser = argparse.ArgumentParser(description='Run compiler tests')
+    parser.add_argument('--stage', type=str, choices=['lexer', 'parser', 'llvm', 'asm', 'full'], help='Run only a specific test stage')
+    args = parser.parse_args()
+    return args.stage
+
+def get_test_stages(valid_preprocessed: List[str], 
+                   invalid_lex_preprocessed: List[str],
+                   invalid_parse_preprocessed: List[str],
+                   selected_stage: Optional[str] = None) -> List[Tuple]:
+    all_stages = [
+        (1, "Lexer", run_lexer, invalid_lex_preprocessed, 
+         invalid_parse_preprocessed + valid_preprocessed),
+        (2, "Parser", run_parser, invalid_parse_preprocessed, valid_preprocessed),
+        (3, "LLVM IR Generation", run_llvm_ir_generator, [], valid_preprocessed),
+        (4, "Assembly Generation", run_x86_64_generator, [], valid_preprocessed),
+        (5, "Full Compilation", run_full_compiler, [], valid_preprocessed),
+    ]
+    
+    if selected_stage:
+        stage_map = {
+            'lexer': 1,
+            'parser': 2,
+            'llvm': 3,
+            'asm': 4,
+            'full': 5
+        }
+        stage_num = stage_map[selected_stage]
+        return [stage for stage in all_stages if stage[0] == stage_num]
+    
+    return all_stages
+
 def main():
+    selected_stage = parse_args()
+    
     num_cores = multiprocessing.cpu_count()
-    num_threads = num_cores * 2
-    print(f"Running tests using {num_threads} threads ({num_cores} CPU cores)")
+    num_threads = 1 if selected_stage else num_cores * 2
+    thread_info = "1 thread" if selected_stage else f"{num_threads} threads ({num_cores} CPU cores)"
+    print(f"Running tests using {thread_info}")
     print("-" * 80)
 
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
@@ -32,13 +68,12 @@ def main():
     invalid_lex_preprocessed = preprocess_futures[1].result()
     invalid_parse_preprocessed = preprocess_futures[2].result()
 
-    test_stages = [
-        (1, "Lexer", run_lexer, invalid_lex_preprocessed, invalid_parse_preprocessed + valid_preprocessed),
-        (2, "Parser", run_parser, invalid_parse_preprocessed, valid_preprocessed),
-        (3, "LLVM IR Generation", run_llvm_ir_generator, [], valid_preprocessed),
-        (4, "Assembly Generation", run_x86_64_generator, [], valid_preprocessed),
-        (5, "Full Compilation", run_full_compiler, [], valid_preprocessed),
-    ]
+    test_stages = get_test_stages(
+        valid_preprocessed,
+        invalid_lex_preprocessed,
+        invalid_parse_preprocessed,
+        selected_stage
+    )
 
     stage_results = []
     with ThreadPoolExecutor(max_workers=min(len(test_stages), num_threads)) as executor:
