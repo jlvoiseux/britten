@@ -96,7 +96,7 @@ def main():
         print(f"Cleanup completed. Removed {files_removed} non-'.c' files")
         print_summary(sorted(stage_results, key=lambda x: x[0]))
         
-        if not all(passed for _, passed in results):
+        if not all(passed for stage_name, passed, *_ in results):
             sys.exit(1)
 
 if __name__ == "__main__":
