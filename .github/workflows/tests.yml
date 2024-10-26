@@ -49,6 +49,11 @@ jobs:
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Debug cache restore
+        run: |
+          ls -la target/x86_64-unknown-linux-gnu/release/
+          pwd
+
       - name: Run lexer tests
         run: |
           cd test 

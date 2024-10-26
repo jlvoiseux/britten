@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import multiprocessing
 import argparse
+import sys
 from typing import List, Tuple, Callable, Optional
 from preprocessor import preprocess_folder
 from compiler import (run_lexer, run_parser, run_llvm_ir_generator, run_x86_64_generator, run_full_compiler)
@@ -94,6 +95,9 @@ def main():
         files_removed = cleanup_samples_directory()
         print(f"Cleanup completed. Removed {files_removed} non-'.c' files")
         print_summary(sorted(stage_results, key=lambda x: x[0]))
+        
+        if not all(passed for _, passed in results):
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
