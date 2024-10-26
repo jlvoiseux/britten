@@ -3,13 +3,7 @@ from utils import get_parent_and_filename
 
 TestResult = Tuple[str, Optional[int], int, bool]
 
-def print_stage_header(stage_name: str) -> None:
-    print(f"\nRunning {stage_name}...")
-    print("-" * 80)
-
 def print_results(results: List[TestResult]) -> bool:
-    print("\nTest Results:")
-    print("-" * 80)
     print(f"{'File Path':<40} {'Result':<10} {'Expected':<10} {'Success':<10}")
     print("-" * 80)
     
@@ -26,15 +20,15 @@ def print_results(results: List[TestResult]) -> bool:
 
     return successful_tests == total_tests
 
-def print_summary(test_results: List[Tuple[str, bool]]) -> None:
+def print_summary(ordered_results: List[Tuple[int, str, bool]]) -> None:
     print("\nTEST SUMMARY:")
     print("-" * 80)
     all_passed = True
     
-    for stage, passed in test_results:
+    for _, stage, passed in ordered_results:
         status = "PASSED" if passed else "FAILED"
-        print(f"{stage:<30} {status}")
         all_passed = all_passed and passed
+        print(f"{stage:<30} {status}")
     
     print("-" * 80)
     print(f"OVERALL STATUS: {'PASSED' if all_passed else 'FAILED'}")
