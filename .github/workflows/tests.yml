@@ -25,15 +25,11 @@ jobs:
       - name: Build compiler
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
-      - name: Cache output
-        uses: actions/cache@v4
+      - name: Cache compiler build
+        uses: actions/cache/save@v4
         with:
-          path: |
-            target/
-            ~/.cargo/
+          path: target/x86_64-unknown-linux-gnu/release
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
 
   lexer-tests:
     needs: setup
@@ -42,17 +38,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            target/
-            ~/.cargo/
+          path: target/x86_64-unknown-linux-gnu/release
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Debug cache restore
-        run: |
-          ls -la target/x86_64-unknown-linux-gnu/release/
-          pwd
 
       - name: Run lexer tests
         run: |
@@ -68,11 +57,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            target/
-            ~/.cargo/
+          path: target/x86_64-unknown-linux-gnu/release
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run parser tests
@@ -89,11 +76,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            target/
-            ~/.cargo/
+          path: target/x86_64-unknown-linux-gnu/release
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run LLVM tests
@@ -110,11 +95,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            target/
-            ~/.cargo/
+          path: target/x86_64-unknown-linux-gnu/release
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run assembly tests
@@ -131,11 +114,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          path: |
-            target/
-            ~/.cargo/
+          path: target/x86_64-unknown-linux-gnu/release
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run full compilation tests
