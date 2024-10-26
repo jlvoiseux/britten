@@ -46,7 +46,7 @@ jobs:
       - name: Run lexer tests
         run: |
           cd test 
-          python3 main.py --stage lexer || exit 1
+          python3 main.py --stage lexer
         env:
           BRITTEN_PATH: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/release/britten
 
@@ -65,7 +65,7 @@ jobs:
       - name: Run parser tests
         run: |
           cd test 
-          python3 main.py --stage parser || exit 1
+          python3 main.py --stage parser
         env:
           BRITTEN_PATH: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/release/britten
 
@@ -84,7 +84,7 @@ jobs:
       - name: Run LLVM tests
         run: |
           cd test 
-          python3 main.py --stage llvm || exit 1
+          python3 main.py --stage llvm
         env:
           BRITTEN_PATH: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/release/britten
 
@@ -103,7 +103,7 @@ jobs:
       - name: Run assembly tests
         run: |
           cd test 
-          python3 main.py --stage asm || exit 1
+          python3 main.py --stage asm
         env:
           BRITTEN_PATH: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/release/britten
 
@@ -122,6 +122,6 @@ jobs:
       - name: Run full compilation tests
         run: |
           cd test 
-          python3 main.py --stage full || exit 1
+          python3 main.py --stage full
         env:
           BRITTEN_PATH: ${{ github.workspace }}/target/x86_64-unknown-linux-gnu/release/britten
