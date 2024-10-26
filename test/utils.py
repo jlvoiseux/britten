@@ -42,7 +42,7 @@ def cleanup_samples_directory() -> int:
     files_removed = 0
     for root, dirs, files in os.walk(samples_dir):
         for file in files:
-            if not file.endswith('.c'):
+            if not file.endswith('.c') and file != 'LICENSE':
                 file_path = os.path.join(root, file)
                 try:
                     os.remove(file_path)

@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::parser::{Program, FunctionDefinition, Statement, Expression, UnaryOperator};
+use crate::parser::{Program, FunctionDefinition, Statement, Expression, UnaryOperator, BinaryOperator};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 static REGISTER_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -28,12 +28,22 @@ pub enum LLVMInstruction {
     Load(String, LLVMValue),
     Alloca(String, String),
     UnaryOp(String, String, LLVMUnaryOp, LLVMValue),
+    BinaryOp(String, String, LLVMBinaryOp, LLVMValue, LLVMValue),
 }
 
 #[derive(Debug, Clone)]
 pub enum LLVMUnaryOp {
     Not,
     Neg,
+}
+
+#[derive(Debug, Clone)]
+pub enum LLVMBinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Remainder
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +120,31 @@ fn generate_expression(expr: &Expression) -> Result<(Vec<LLVMInstruction>, Strin
             instructions.push(op_inst);
             Ok((instructions, result_reg))
         }
+        Expression::Binary(op, inner_expr1, inner_expr2) => {
+            let (mut instructions1, reg1) = generate_expression(inner_expr1)?;
+            let (mut instructions2, reg2) = generate_expression(inner_expr2)?;
+            let result_reg = next_register();
+
+            instructions1.append(&mut instructions2);
+
+            let operation = match op {
+                BinaryOperator::Add => LLVMBinaryOp::Add,
+                BinaryOperator::Subtract => LLVMBinaryOp::Subtract,
+                BinaryOperator::Multiply => LLVMBinaryOp::Multiply,
+                BinaryOperator::Divide => LLVMBinaryOp::Divide ,
+                BinaryOperator::Remainder => LLVMBinaryOp::Remainder,
+            };
+
+            instructions1.push(LLVMInstruction::BinaryOp(
+                result_reg.clone(),
+                "i32".to_string(),
+                operation,
+                LLVMValue::Register(reg1),
+                LLVMValue::Register(reg2)
+            ));
+
+            Ok((instructions1, result_reg))
+        }
     }
 }
 
@@ -151,6 +186,8 @@ impl fmt::Display for LLVMInstruction {
                     LLVMUnaryOp::Neg => writeln!(f, "{} = sub {} 0, {}", dst, ty, value),
                 }
             }
+            LLVMInstruction::BinaryOp(dst, ty, op, lhs, rhs) =>
+                writeln!(f, "{} = {} {} {}, {}", dst, op, ty, lhs, rhs),
         }
     }
 }
@@ -160,6 +197,18 @@ impl fmt::Display for LLVMValue {
         match self {
             LLVMValue::Register(reg) => write!(f, "{}", reg),
             LLVMValue::Immediate(value) => write!(f, "{}", value),
+        }
+    }
+}
+
+impl fmt::Display for LLVMBinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LLVMBinaryOp::Add => write!(f, "add"),
+            LLVMBinaryOp::Subtract => write!(f, "sub"),
+            LLVMBinaryOp::Multiply => write!(f, "mul"),
+            LLVMBinaryOp::Divide => write!(f, "sdiv"),
+            LLVMBinaryOp::Remainder => write!(f, "srem"),
         }
     }
 }

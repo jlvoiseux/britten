@@ -16,7 +16,11 @@ pub enum Token {
     CloseBrace,
     Semicolon,
     BitwiseComplement,
-    Negation
+    Subtraction,
+    Addition,
+    Multiplication,
+    Division,
+    Remainder
 }
 
 //
@@ -76,7 +80,11 @@ fn tokenize_next(input: &str) -> Result<(Token, &str), String> {
         (r"^\}", |_| Ok(Token::CloseBrace)),
         (r"^;", |_| Ok(Token::Semicolon)),
         (r"^~", |_| Ok(Token::BitwiseComplement)),
-        (r"^-", |_| Ok(Token::Negation)),
+        (r"^-", |_| Ok(Token::Subtraction)),
+        (r"^\+", |_| Ok(Token::Addition)),
+        (r"^\*", |_| Ok(Token::Multiplication)),
+        (r"^/", |_| Ok(Token::Division)),
+        (r"^%", |_| Ok(Token::Remainder)),
     ];
 
     for (pattern, tokenizer) in token_patterns.iter() {

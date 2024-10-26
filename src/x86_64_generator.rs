@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::llvm_ir_generator::{LLVMConstruct, LLVMFunction, LLVMInstruction, LLVMValue, LLVMUnaryOp};
+use crate::llvm_ir_generator::{LLVMConstruct, LLVMFunction, LLVMInstruction, LLVMValue, LLVMUnaryOp, LLVMBinaryOp};
 
 #[derive(Debug, Clone)]
 pub enum AssemblyConstruct {
@@ -18,6 +18,9 @@ pub enum AssemblyFunction {
 pub enum AssemblyInstruction {
     Mov(AssemblyOperand, AssemblyOperand),
     Unary(AssemblyUnaryOperator, AssemblyOperand),
+    Binary(AssemblyBinaryOperator, AssemblyOperand, AssemblyOperand),
+    Idiv(AssemblyOperand),
+    Cdq,
     AllocateStack(i32),
     Ret,
 }
@@ -26,6 +29,13 @@ pub enum AssemblyInstruction {
 pub enum AssemblyUnaryOperator {
     Neg,
     Not
+}
+
+#[derive(Debug, Clone)]
+pub enum AssemblyBinaryOperator {
+    Add,
+    Sub,
+    Mult
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +49,9 @@ pub enum AssemblyOperand {
 #[derive(Debug, Clone)]
 pub enum AssemblyRegister {
     AX,
-    R10
+    DX,
+    R10,
+    R11
 }
 
 pub fn generate(llvm_ir: &LLVMConstruct) -> Result<AssemblyConstruct, String> {
@@ -52,7 +64,6 @@ pub fn generate(llvm_ir: &LLVMConstruct) -> Result<AssemblyConstruct, String> {
         }
     }
 }
-
 
 fn generate_function(function: &LLVMFunction) -> Result<AssemblyFunction, String> {
     match function {
@@ -96,6 +107,49 @@ fn generate_instruction(instruction: &LLVMInstruction) -> Result<Option<Vec<Asse
                     AssemblyOperand::PseudoRegister(dst.clone())
                 )
             ]))
+        },
+        LLVMInstruction::BinaryOp(dst, _, op, lhs, rhs) => {
+            let instructions = match op {
+                LLVMBinaryOp::Add | LLVMBinaryOp::Subtract | LLVMBinaryOp::Multiply => {
+                    let asm_op = match op {
+                        LLVMBinaryOp::Add => AssemblyBinaryOperator::Add,
+                        LLVMBinaryOp::Subtract => AssemblyBinaryOperator::Sub,
+                        LLVMBinaryOp::Multiply => AssemblyBinaryOperator::Mult,
+                        _ => unreachable!(),
+                    };
+                    vec![
+                        AssemblyInstruction::Mov(
+                            generate_value(lhs),
+                            AssemblyOperand::PseudoRegister(dst.clone())
+                        ),
+                        AssemblyInstruction::Binary(
+                            asm_op,
+                            generate_value(rhs),
+                            AssemblyOperand::PseudoRegister(dst.clone())
+                        ),
+                    ]
+                },
+                LLVMBinaryOp::Divide | LLVMBinaryOp::Remainder => {
+                    let result_reg = match op {
+                        LLVMBinaryOp::Divide => AssemblyRegister::AX,
+                        LLVMBinaryOp::Remainder => AssemblyRegister::DX,
+                        _ => unreachable!(),
+                    };
+                    vec![
+                        AssemblyInstruction::Mov(
+                            generate_value(lhs),
+                            AssemblyOperand::Register(AssemblyRegister::AX)
+                        ),
+                        AssemblyInstruction::Cdq,
+                        AssemblyInstruction::Idiv(generate_value(rhs)),
+                        AssemblyInstruction::Mov(
+                            AssemblyOperand::Register(result_reg),
+                            AssemblyOperand::PseudoRegister(dst.clone())
+                        ),
+                    ]
+                },
+            };
+            Ok(Some(instructions))
         },
         LLVMInstruction::Store(src, dst) => {
             Ok(Some(vec![AssemblyInstruction::Mov(
@@ -142,6 +196,14 @@ fn compute_stack_allocation(func: &AssemblyFunction) -> Result<(AssemblyFunction
                     op.clone(),
                     replace_pseudo(operand)
                 ),
+                AssemblyInstruction::Binary(op, src, dst) => AssemblyInstruction::Binary(
+                    op.clone(),
+                    replace_pseudo(src),
+                    replace_pseudo(dst)
+                ),
+                AssemblyInstruction::Idiv(src) => AssemblyInstruction::Idiv(
+                    replace_pseudo(src)
+                ),
                 other => other.clone(),
             }).collect();
 
@@ -153,12 +215,12 @@ fn compute_stack_allocation(func: &AssemblyFunction) -> Result<(AssemblyFunction
 fn fix_memory_constraints(program: AssemblyConstruct, stack_size: i32) -> Result<AssemblyConstruct, String> {
     match program {
         AssemblyConstruct::Program(function) => {
-            Ok(AssemblyConstruct::Program(fix_function_memory(function, stack_size)?))
+            Ok(AssemblyConstruct::Program(fix_instructions_operands(function, stack_size)?))
         }
     }
 }
 
-fn fix_function_memory(function: AssemblyFunction, stack_size: i32) -> Result<AssemblyFunction, String> {
+fn fix_instructions_operands(function: AssemblyFunction, stack_size: i32) -> Result<AssemblyFunction, String> {
     match function {
         AssemblyFunction::Function { name, instructions } => {
             let mut new_instructions = Vec::new();
@@ -168,16 +230,37 @@ fn fix_function_memory(function: AssemblyFunction, stack_size: i32) -> Result<As
                 match inst {
                     AssemblyInstruction::Mov(src, dst) => {
                         if let (AssemblyOperand::StackPointer(_), AssemblyOperand::StackPointer(_)) = (&src, &dst) {
-                            new_instructions.push(AssemblyInstruction::Mov(
-                                src,
-                                AssemblyOperand::Register(AssemblyRegister::R10)
-                            ));
-                            new_instructions.push(AssemblyInstruction::Mov(
-                                AssemblyOperand::Register(AssemblyRegister::R10),
-                                dst
-                            ));
+                            new_instructions.extend([
+                                AssemblyInstruction::Mov(src, AssemblyOperand::Register(AssemblyRegister::R10)),
+                                AssemblyInstruction::Mov(AssemblyOperand::Register(AssemblyRegister::R10), dst),
+                            ]);
                         } else {
                             new_instructions.push(AssemblyInstruction::Mov(src, dst));
+                        }
+                    },
+                    AssemblyInstruction::Idiv(src) => {
+                        match src {
+                            AssemblyOperand::Immediate(_) => new_instructions.extend([
+                                AssemblyInstruction::Mov(src, AssemblyOperand::Register(AssemblyRegister::R10)),
+                                AssemblyInstruction::Idiv(AssemblyOperand::Register(AssemblyRegister::R10)),
+                            ]),
+                            _ => new_instructions.push(AssemblyInstruction::Idiv(src)),
+                        }
+                    },
+                    AssemblyInstruction::Binary(op, src, dst) => {
+                        match op {
+                            AssemblyBinaryOperator::Mult => new_instructions.extend([
+                                AssemblyInstruction::Mov(dst.clone(), AssemblyOperand::Register(AssemblyRegister::R11)),
+                                AssemblyInstruction::Binary(op, src, AssemblyOperand::Register(AssemblyRegister::R11)),
+                                AssemblyInstruction::Mov(AssemblyOperand::Register(AssemblyRegister::R11), dst),
+                            ]),
+                            _ => match src {
+                                AssemblyOperand::StackPointer(_) => new_instructions.extend([
+                                    AssemblyInstruction::Mov(src, AssemblyOperand::Register(AssemblyRegister::R10)),
+                                    AssemblyInstruction::Binary(op, AssemblyOperand::Register(AssemblyRegister::R10), dst),
+                                ]),
+                                _ => new_instructions.push(AssemblyInstruction::Binary(op, src, dst)),
+                            },
                         }
                     },
                     other => new_instructions.push(other),
@@ -221,6 +304,9 @@ impl fmt::Display for AssemblyInstruction {
         match self {
             AssemblyInstruction::Mov(src, dst) => writeln!(f, "movl {}, {}", src, dst),
             AssemblyInstruction::Unary(op, operand) => writeln!(f, "{} {}", op, operand),
+            AssemblyInstruction::Binary(op, src, dst) => writeln!(f, "{} {}, {}", op, src, dst),
+            AssemblyInstruction::Idiv(src) => writeln!(f, "idivl {}", src),
+            AssemblyInstruction::Cdq => writeln!(f, "cdq"),
             AssemblyInstruction::AllocateStack(size) => writeln!(f, "subq ${}, %rsp", size),
             AssemblyInstruction::Ret => {
                 writeln!(f, "movq %rbp, %rsp")?;
@@ -240,6 +326,16 @@ impl fmt::Display for AssemblyUnaryOperator {
     }
 }
 
+impl fmt::Display for AssemblyBinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AssemblyBinaryOperator::Add => write!(f, "addl"),
+            AssemblyBinaryOperator::Sub => write!(f, "subl"),
+            AssemblyBinaryOperator::Mult => write!(f, "imull"),
+        }
+    }
+}
+
 impl fmt::Display for AssemblyOperand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -255,7 +351,9 @@ impl fmt::Display for AssemblyRegister {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             AssemblyRegister::AX => write!(f, "%eax"),
+            AssemblyRegister::DX => write!(f, "%edx"),
             AssemblyRegister::R10 => write!(f, "%r10d"),
+            AssemblyRegister::R11 => write!(f, "%r11d"),
         }
     }
 }
