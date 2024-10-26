@@ -3,37 +3,44 @@ name: Compiler Tests
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install LLVM and Clang
         run: |
           sudo apt-get update
           sudo apt-get install -y llvm clang
+
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-      - name: Build compiler
-        run: cargo build --release
-      - name: Cache build
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: |
             target/
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build compiler
+        run: cargo build --release --target x86_64-unknown-linux-gnu
 
   lexer-tests:
     needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -41,14 +48,18 @@ jobs:
             target/
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Run lexer tests
-        run: cd test && python main.py --stage lexer
+        run: cd test && python3 main.py --stage lexer
+        env:
+          BRITTEN_PATH: ../target/x86_64-unknown-linux-gnu/release/britten
 
   parser-tests:
-    needs: setup
+    needs: lexer-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -56,14 +67,18 @@ jobs:
             target/
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Run parser tests
-        run: cd test && python main.py --stage parser
+        run: cd test && python3 main.py --stage parser
+        env:
+          BRITTEN_PATH: ../target/x86_64-unknown-linux-gnu/release/britten
 
   llvm-tests:
-    needs: setup
+    needs: parser-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -71,14 +86,18 @@ jobs:
             target/
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Run LLVM tests
-        run: cd test && python main.py --stage llvm
+        run: cd test && python3 main.py --stage llvm
+        env:
+          BRITTEN_PATH: ../target/x86_64-unknown-linux-gnu/release/britten
 
   asm-tests:
-    needs: setup
+    needs: llvm-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -86,14 +105,18 @@ jobs:
             target/
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Run assembly tests
-        run: cd test && python main.py --stage asm
+        run: cd test && python3 main.py --stage asm
+        env:
+          BRITTEN_PATH: ../target/x86_64-unknown-linux-gnu/release/britten
 
   full-compiler-tests:
-    needs: setup
+    needs: asm-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Restore cache
         uses: actions/cache@v4
         with:
@@ -101,5 +124,8 @@ jobs:
             target/
             ~/.cargo/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
       - name: Run full compilation tests
-        run: cd test && python main.py --stage full
+        run: cd test && python3 main.py --stage full
+        env:
+          BRITTEN_PATH: ../target/x86_64-unknown-linux-gnu/release/britten
